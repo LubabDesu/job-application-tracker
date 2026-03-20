@@ -29,3 +29,8 @@ export type Seniority = typeof SENIORITY_OPTIONS[number]
 
 export const SOURCE_OPTIONS = ['greenhouse', 'linkedin', 'lever', 'workday'] as const
 export type Source = typeof SOURCE_OPTIONS[number]
+
+export const PREP_DB_FIELDS = {
+  NAME: 'Name',
+  JOB: 'Job',
+} as const

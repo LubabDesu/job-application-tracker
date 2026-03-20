@@ -1,5 +1,5 @@
 import { Client } from '@notionhq/client'
-import { DB_FIELDS, type Status, type JobType, type Seniority, type Source } from './schema.js'
+import { DB_FIELDS, PREP_DB_FIELDS, type Status, type JobType, type Seniority, type Source } from './schema.js'
 
 export interface CreateJobInput {
   company: string
@@ -157,18 +157,30 @@ export class NotionClient {
     return { row, jdText }
   }
 
-  async createPrepPage(jobId: string, jobTitle: string, _content: string): Promise<string> {
+  async createPrepPage(jobId: string, jobTitle: string, content: string): Promise<string> {
     const page = await this.client.pages.create({
       parent: { database_id: this.prepDbId },
       properties: {
-        Name: { title: [{ text: { content: `Interview Prep — ${jobTitle}` } }] },
-        Job: { rich_text: [{ text: { content: jobId } }] },
+        [PREP_DB_FIELDS.NAME]: { title: [{ text: { content: `Interview Prep — ${jobTitle}` } }] },
+        [PREP_DB_FIELDS.JOB]: { rich_text: [{ text: { content: jobId } }] },
       }
     }) as { id: string }
+    // Link relation on job row
     await this.client.pages.update({
       page_id: jobId,
       properties: { [DB_FIELDS.PREP_PAGE]: { relation: [{ id: page.id }] } }
     })
+    // Append content as paragraph blocks
+    if (content.trim()) {
+      const chunks = content.match(/.{1,2000}/gs) ?? []
+      const blocks = chunks.map(chunk => ({
+        type: 'paragraph' as const,
+        paragraph: { rich_text: [{ text: { content: chunk } }] }
+      }))
+      for (let i = 0; i < blocks.length; i += 100) {
+        await this.client.blocks.children.append({ block_id: page.id, children: blocks.slice(i, i + 100) })
+      }
+    }
     return page.id
   }
 
