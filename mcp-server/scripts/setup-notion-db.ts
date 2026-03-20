@@ -3,7 +3,13 @@ import 'dotenv/config'
 import { Client } from '@notionhq/client'
 import { DB_FIELDS, STATUS_OPTIONS, JOB_TYPE_OPTIONS, SENIORITY_OPTIONS, SOURCE_OPTIONS } from '../src/notion/schema.js'
 
-const notion = new Client({ auth: process.env['NOTION_TOKEN']! })
+const notionToken = process.env['NOTION_TOKEN']
+if (!notionToken?.trim()) {
+  console.error('Missing required env var: NOTION_TOKEN')
+  process.exit(1)
+}
+
+const notion = new Client({ auth: notionToken })
 const parentPageId = process.env['NOTION_PARENT_PAGE_ID']!
 
 if (!parentPageId?.trim()) {
@@ -53,6 +59,6 @@ async function main() {
 }
 
 main().catch((err: unknown) => {
-  console.error('[fatal]', err instanceof Error ? err.message : err)
+  console.error('[fatal]', err instanceof Error ? err.message : String(err))
   process.exit(1)
 })
