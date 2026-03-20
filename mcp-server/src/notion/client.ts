@@ -54,7 +54,7 @@ export class NotionClient {
         [DB_FIELDS.COMPANY]: { title: [{ text: { content: input.company } }] },
         [DB_FIELDS.ROLE]: { rich_text: [{ text: { content: input.role } }] },
         [DB_FIELDS.STATUS]: { select: { name: 'Applied' } },
-        [DB_FIELDS.APPLIED_DATE]: { date: { start: new Date().toISOString().split('T')[0] ?? '' } },
+        [DB_FIELDS.APPLIED_DATE]: { date: { start: new Date().toISOString().substring(0, 10) } },
         [DB_FIELDS.JOB_URL]: { url: input.url },
         [DB_FIELDS.SOURCE_PLATFORM]: { select: { name: input.sourcePlatform } },
         [DB_FIELDS.ENRICHED]: { checkbox: false },
@@ -91,14 +91,7 @@ export class NotionClient {
   }
 
   async appendJdText(jobId: string, jdText: string): Promise<void> {
-    const chunks = jdText.match(/.{1,2000}/gs) ?? []
-    const blocks = chunks.map(chunk => ({
-      type: 'paragraph' as const,
-      paragraph: { rich_text: [{ text: { content: chunk } }] }
-    }))
-    for (let i = 0; i < blocks.length; i += 100) {
-      await this.client.blocks.children.append({ block_id: jobId, children: blocks.slice(i, i + 100) })
-    }
+    await this.appendTextAsBlocks(jobId, jdText)
   }
 
   async queryJobs(filters: { status?: Status; jobType?: JobType; company?: string; limit?: number }): Promise<JobRow[]> {
@@ -130,13 +123,17 @@ export class NotionClient {
 
   async appendNote(jobId: string, note: string): Promise<void> {
     const timestamp = new Date().toISOString()
-    const page = await this.client.pages.retrieve({ page_id: jobId }) as Record<string, unknown>
-    const props = page['properties'] as Record<string, { rich_text?: Array<{ plain_text: string }> }>
-    const existing = props[DB_FIELDS.NOTES]?.rich_text?.[0]?.plain_text ?? ''
-    const updated = existing ? `${existing}\n[${timestamp}] ${note}` : `[${timestamp}] ${note}`
-    await this.client.pages.update({
-      page_id: jobId,
-      properties: { [DB_FIELDS.NOTES]: { rich_text: [{ text: { content: updated.slice(0, 2000) } }] } }
+    const content = `[${timestamp}] ${note}`
+    await this.client.blocks.children.append({
+      block_id: jobId,
+      children: [{
+        type: 'callout' as const,
+        callout: {
+          icon: { type: 'emoji' as const, emoji: '📝' },
+          rich_text: [{ text: { content: content.slice(0, 2000) } }],
+          color: 'gray_background' as const,
+        }
+      }]
     })
   }
 
@@ -172,16 +169,20 @@ export class NotionClient {
     })
     // Append content as paragraph blocks
     if (content.trim()) {
-      const chunks = content.match(/.{1,2000}/gs) ?? []
-      const blocks = chunks.map(chunk => ({
-        type: 'paragraph' as const,
-        paragraph: { rich_text: [{ text: { content: chunk } }] }
-      }))
-      for (let i = 0; i < blocks.length; i += 100) {
-        await this.client.blocks.children.append({ block_id: page.id, children: blocks.slice(i, i + 100) })
-      }
+      await this.appendTextAsBlocks(page.id, content)
     }
     return page.id
+  }
+
+  private async appendTextAsBlocks(blockId: string, text: string): Promise<void> {
+    const chunks = text.match(/.{1,2000}/gs) ?? []
+    const blocks = chunks.map(chunk => ({
+      type: 'paragraph' as const,
+      paragraph: { rich_text: [{ text: { content: chunk } }] }
+    }))
+    for (let i = 0; i < blocks.length; i += 100) {
+      await this.client.blocks.children.append({ block_id: blockId, children: blocks.slice(i, i + 100) })
+    }
   }
 
   private pageToJobRow(page: Record<string, unknown>): JobRow {
