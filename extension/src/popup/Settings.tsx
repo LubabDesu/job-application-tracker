@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react'
 import type { ExtensionSettings } from '../shared/types.js'
 import { DEFAULT_SETTINGS } from '../shared/types.js'
 
+const BG      = '#0c0c11'
+const BORDER  = 'rgba(255,255,255,0.07)'
+const TEXT    = '#dcdce8'
+const MUTED   = '#4e4e66'
+const SUCCESS = '#34d399'
+const FONT    = `-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
+
 interface Props {
   onBack: () => void
 }
@@ -13,9 +20,7 @@ export default function Settings({ onBack }: Props) {
   useEffect(() => {
     chrome.storage.local.get('settings').then((result) => {
       const stored = result['settings'] as Partial<ExtensionSettings> | undefined
-      if (stored !== undefined) {
-        setSettings({ ...DEFAULT_SETTINGS, ...stored })
-      }
+      if (stored !== undefined) setSettings({ ...DEFAULT_SETTINGS, ...stored })
     })
   }, [])
 
@@ -27,81 +32,105 @@ export default function Settings({ onBack }: Props) {
     })
   }
 
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: '11px',
-    fontWeight: 600,
-    color: '#555',
-    marginBottom: '3px',
-  }
-
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    boxSizing: 'border-box',
-    padding: '5px 7px',
-    fontSize: '12px',
-    border: '1px solid #d0d7de',
-    borderRadius: '4px',
-    fontFamily: 'system-ui, sans-serif',
+    padding: '7px 10px',
+    fontSize: 12,
+    background: 'rgba(255,255,255,0.04)',
+    border: `1px solid ${BORDER}`,
+    borderRadius: 6,
+    color: TEXT,
+    fontFamily: FONT,
+    outline: 'none',
   }
 
-  const fieldStyle: React.CSSProperties = { marginBottom: '10px' }
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: 10,
+    fontWeight: 600,
+    color: MUTED,
+    letterSpacing: '0.07em',
+    textTransform: 'uppercase',
+    marginBottom: 5,
+  }
 
   return (
-    <div style={{ width: '240px', padding: '16px', fontFamily: 'system-ui, sans-serif', fontSize: '13px', color: '#1a1a1a' }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+    <div style={{
+      width: 300,
+      background: BG,
+      padding: '14px 14px 16px',
+      fontFamily: FONT,
+      fontSize: 13,
+      color: TEXT,
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <button
           onClick={onBack}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 6px 0 0', fontSize: '13px', color: '#555' }}
           aria-label="Back"
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: `1px solid ${BORDER}`,
+            borderRadius: 5,
+            color: MUTED,
+            padding: '2px 8px',
+            fontSize: 12,
+            cursor: 'pointer',
+            fontFamily: FONT,
+          }}
         >
           ←
         </button>
-        <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Settings</h2>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: TEXT }}>Settings</span>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div style={fieldStyle}>
-          <label htmlFor="mcpUrl" style={labelStyle}>MCP URL</label>
-          <input
-            id="mcpUrl"
-            type="text"
-            value={settings.mcpUrl}
-            onChange={(e) => setSettings({ ...settings, mcpUrl: e.target.value })}
-            style={inputStyle}
-            aria-label="MCP URL"
-          />
-        </div>
+      {/* Form */}
+      <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14 }}>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 12 }}>
+            <label htmlFor="mcpUrl" style={labelStyle}>MCP URL</label>
+            <input
+              id="mcpUrl"
+              type="text"
+              value={settings.mcpUrl}
+              onChange={(e) => setSettings({ ...settings, mcpUrl: e.target.value })}
+              style={inputStyle}
+              aria-label="MCP URL"
+            />
+          </div>
 
-        <div style={fieldStyle}>
-          <label htmlFor="mcpSecret" style={labelStyle}>MCP Secret</label>
-          <input
-            id="mcpSecret"
-            type="password"
-            value={settings.mcpSecret}
-            onChange={(e) => setSettings({ ...settings, mcpSecret: e.target.value })}
-            style={inputStyle}
-            aria-label="MCP Secret"
-          />
-        </div>
+          <div style={{ marginBottom: 14 }}>
+            <label htmlFor="mcpSecret" style={labelStyle}>MCP Secret</label>
+            <input
+              id="mcpSecret"
+              type="password"
+              value={settings.mcpSecret}
+              onChange={(e) => setSettings({ ...settings, mcpSecret: e.target.value })}
+              style={inputStyle}
+              aria-label="MCP Secret"
+            />
+          </div>
 
-        <button
-          type="submit"
-          style={{
-            width: '100%',
-            padding: '6px',
-            fontSize: '13px',
-            fontWeight: 500,
-            background: saved ? '#1a7f37' : '#0969da',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
-          {saved ? 'Saved \u2713' : 'Save'}
-        </button>
-      </form>
+          <button
+            type="submit"
+            style={{
+              width: '100%',
+              padding: '7px',
+              fontSize: 12,
+              fontWeight: 500,
+              background: saved ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.07)',
+              border: `1px solid ${saved ? 'rgba(52,211,153,0.28)' : BORDER}`,
+              color: saved ? SUCCESS : TEXT,
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontFamily: FONT,
+              transition: 'all 0.15s',
+            }}
+          >
+            {saved ? 'Saved ✓' : 'Save settings'}
+          </button>
+        </form>
+      </div>
     </div>
   )
 }
