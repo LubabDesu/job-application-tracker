@@ -1,0 +1,25 @@
+# Environment secrets
+.env
+mcp-server/.env
+
+# Node dependencies
+node_modules/
+mcp-server/node_modules/
+extension/node_modules/
+
+# Build output
+extension/dist/
+mcp-server/dist/
+
+# Superpowers plugin files
+.superpowers/
+
+# Vite cache
+mcp-server/node_modules/.vite/
+
+# OS files
+.DS_Store
+*.DS_Store
+
+# TypeScript build info
+*.tsbuildinfo
