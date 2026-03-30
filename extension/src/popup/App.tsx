@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import type { LogEntry } from '../shared/types.js'
+import type { LogEntry, ExtensionSettings } from '../shared/types.js'
+import { DEFAULT_SETTINGS } from '../shared/types.js'
 import Settings from './Settings.js'
 
 // Keyframe animations injected once at the root
@@ -74,6 +75,25 @@ function StatusLabel({ color, children }: { color: string; children: string }) {
   )
 }
 
+type ServerStatus = 'checking' | 'online' | 'offline' | 'auth_error'
+
+const SERVER_STATUS_CONFIG: Record<ServerStatus, { color: string; label: string }> = {
+  checking:   { color: MUTED,       label: 'Checking server\u2026' },
+  online:     { color: SUCCESS,     label: 'Server connected' },
+  offline:    { color: ERROR_CLR,   label: 'Server offline \u2014 run npm run dev' },
+  auth_error: { color: PENDING_CLR, label: 'Auth error \u2014 check MCP Secret in Settings' },
+}
+
+function ServerStatusBar({ status }: { status: ServerStatus }) {
+  const { color, label } = SERVER_STATUS_CONFIG[status]
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+      <Dot color={color} pulse={status === 'checking'} />
+      <span style={{ fontSize: 10, color, fontFamily: FONT }}>{label}</span>
+    </div>
+  )
+}
+
 function Header({ onSettings }: { onSettings: () => void }) {
   const [hov, setHov] = useState(false)
   return (
@@ -108,10 +128,10 @@ function Header({ onSettings }: { onSettings: () => void }) {
         style={{
           background: hov ? 'rgba(255,255,255,0.06)' : 'transparent',
           border: 'none',
-          padding: '3px 6px',
+          padding: '4px 8px',
           borderRadius: 5,
           color: hov ? TEXT : MUTED,
-          fontSize: 13,
+          fontSize: 15,
           lineHeight: 1,
           cursor: 'pointer',
           transition: 'color 0.12s, background 0.12s',
@@ -127,6 +147,28 @@ function Header({ onSettings }: { onSettings: () => void }) {
 export default function App() {
   const [entry, setEntry] = useState<LogEntry | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [serverStatus, setServerStatus] = useState<ServerStatus>('checking')
+
+  useEffect(() => {
+    chrome.storage.local.get('settings').then((result) => {
+      const stored = result['settings'] as Partial<ExtensionSettings> | undefined
+      const { mcpUrl, mcpSecret } = { ...DEFAULT_SETTINGS, ...stored }
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 4000)
+      fetch(`${mcpUrl}/health`, {
+        headers: { Authorization: `Bearer ${mcpSecret}` },
+        signal: controller.signal,
+      })
+        .then((res) => {
+          clearTimeout(timer)
+          setServerStatus(res.status === 401 ? 'auth_error' : res.ok ? 'online' : 'offline')
+        })
+        .catch(() => {
+          clearTimeout(timer)
+          setServerStatus('offline')
+        })
+    })
+  }, [])
 
   useEffect(() => {
     chrome.storage.session.get('lastLogged').then((result) => {
@@ -249,6 +291,7 @@ export default function App() {
       <style>{STYLES}</style>
       <div style={shell}>
         <Header onSettings={() => setShowSettings(true)} />
+        <ServerStatusBar status={serverStatus} />
         <div style={divider}>{renderStatus()}</div>
       </div>
     </>
