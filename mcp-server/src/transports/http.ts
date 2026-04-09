@@ -74,7 +74,7 @@ export function startHttpTransport(
 
     if (req.method === 'POST' && req.url === '/log') {
       readBody(req).then((raw) => {
-        let args: unknown
+        let args: any
         try {
           args = JSON.parse(raw)
         } catch {
@@ -82,6 +82,22 @@ export function startHttpTransport(
           res.end(JSON.stringify({ error: 'Invalid JSON body' }))
           return
         }
+
+        // Basic validation for MVP
+        if (!args.company || !args.role || !args.url || !args.source_platform) {
+          res.writeHead(400, { 'Content-Type': 'application/json', ...CORS_HEADERS })
+          res.end(JSON.stringify({ error: 'Missing required fields: company, role, url, source_platform' }))
+          return
+        }
+
+        try {
+          new URL(args.url)
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json', ...CORS_HEADERS })
+          res.end(JSON.stringify({ error: 'Invalid URL format' }))
+          return
+        }
+
         return logApplication(args as LogApplicationArgs).then((result) => {
           res.writeHead(200, { 'Content-Type': 'application/json', ...CORS_HEADERS })
           res.end(JSON.stringify(result))

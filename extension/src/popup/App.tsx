@@ -21,6 +21,13 @@ const PENDING_CLR = '#fbbf24'
 const ERROR_CLR   = '#f87171'
 const FONT        = `-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
 
+const ERROR_TTL_MS = 10 * 60 * 1000 // 10 minutes
+
+function isStaleError(entry: LogEntry): boolean {
+  if (entry.status !== 'error') return false
+  return Date.now() - new Date(entry.loggedAt).getTime() > ERROR_TTL_MS
+}
+
 function isLogEntry(value: unknown): value is LogEntry {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>
@@ -173,7 +180,7 @@ export default function App() {
   useEffect(() => {
     chrome.storage.session.get('lastLogged').then((result) => {
       const raw = result['lastLogged']
-      if (isLogEntry(raw)) setEntry(raw)
+      if (isLogEntry(raw) && !isStaleError(raw)) setEntry(raw)
     })
 
     const listener = (
@@ -183,7 +190,7 @@ export default function App() {
       if (areaName !== 'session') return
       const change = changes['lastLogged']
       if (change === undefined) return
-      if (isLogEntry(change.newValue)) setEntry(change.newValue)
+      if (isLogEntry(change.newValue) && !isStaleError(change.newValue)) setEntry(change.newValue)
     }
 
     chrome.storage.onChanged.addListener(listener)

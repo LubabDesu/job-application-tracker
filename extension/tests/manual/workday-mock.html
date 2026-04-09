@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<!--
+  Workday Application Flow Mock
+  ==============================
+  Test flow:
+  1. Open in browser. The "Job Detail" section is visible by default.
+     - isJobDetailPage() checks for [data-automation-id="jobTitle"] AND URL contains "/job/"
+     - NOTE: Since this is a local file:// URL, window.location.pathname will NOT contain "/job/"
+       so isJobDetailPage() returns false for the URL check.
+       To test the full detection, either:
+         (a) serve via `npx serve` and access at http://localhost:3000/job/software-engineer
+         (b) or temporarily relax the URL check in workday.ts during local testing.
+     - The content script caches role/company/jdText/location to chrome.storage.session.
+  2. Click "Show Form" to reveal the multi-step application form.
+     - The "Next" button has data-automation-id="bottom-navigation-next-button"
+     - Each click increments the cached step counter.
+     - Watch the console for "[workday] step: null → 1", "step: 1 → 2", etc.
+  3. After stepping through the form, click "Show Confirmation" to simulate submission.
+     - The confirmation text matches /successfully submitted your application/i
+     - The MutationObserver in startObserver() fires handleConfirmation()
+     - Watch the console for "[workday] JOB_DETECTED sent successfully"
+  4. Use "Clear Session Storage" to reset dedup and step state for re-testing.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Software Engineer at Acme Corp | Workday</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    section { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    section h2 { margin-top: 0; font-size: 1rem; color: #666; text-transform: uppercase; }
+    .hidden { display: none; }
+    .control-panel { background: #f5f5f5; }
+    .control-panel button { margin: 4px; padding: 8px 12px; cursor: pointer; border-radius: 4px; border: 1px solid #999; }
+    .step-indicator { display: flex; gap: 8px; margin-bottom: 16px; }
+    .step-indicator div { padding: 6px 12px; background: #eee; border-radius: 4px; font-size: 0.85rem; }
+    .step-indicator div[aria-current="step"] { background: #0066cc; color: white; }
+    .confirmation-banner { background: #e8f5e9; border: 1px solid #4caf50; padding: 16px; border-radius: 6px; }
+    dd { margin: 0; }
+  </style>
+</head>
+<body>
+
+  <!-- =====================================================================
+       CONTROL PANEL
+       ===================================================================== -->
+  <section class="control-panel">
+    <h2>Test Controls</h2>
+    <p>Use these buttons to simulate different stages of the Workday application flow.</p>
+    <button onclick="showSection('job-detail')">Show Job Detail</button>
+    <button onclick="showSection('form')">Show Form</button>
+    <button onclick="showStep(1)">Show Step 1</button>
+    <button onclick="showStep(2)">Show Step 2</button>
+    <button onclick="showStep(3)">Show Step 3</button>
+    <button onclick="showStep(4)">Show Step 4</button>
+    <button onclick="showStep(5)">Show Step 5</button>
+    <button onclick="showSection('confirmation')">Show Confirmation</button>
+    <button onclick="clearStorage()">Clear Session Storage</button>
+  </section>
+
+  <!-- =====================================================================
+       SECTION 1: JOB DETAIL PAGE
+       Tests: isJobDetailPage(), scrapeJobDetails(), handleJobDetailPage()
+       NOTE: URL must contain "/job/" for isJobDetailPage() to return true.
+       When loaded as file://, window.location.pathname = "/workday-mock.html"
+       so the pathname check fails. Serve via HTTP at a path containing "/job/"
+       to test the full detection gate.
+       ===================================================================== -->
+  <section id="job-detail">
+    <h2>Job Detail Page</h2>
+
+    <!-- data-automation-id="jobTitle" is the primary selector for role detection -->
+    <a data-automation-id="jobTitle" href="#">Software Engineer</a>
+
+    <div data-automation-id="locations">
+      <dd>San Francisco, CA</dd>
+    </div>
+
+    <main>
+      <h3>About this role</h3>
+      <p>We are looking for a Software Engineer to join our team. You will work on
+      building scalable backend systems and collaborate with cross-functional teams
+      to deliver high-quality software solutions.</p>
+      <h3>Requirements</h3>
+      <ul>
+        <li>3+ years of experience with TypeScript or JavaScript</li>
+        <li>Experience with cloud platforms (AWS, GCP, or Azure)</li>
+        <li>Strong understanding of distributed systems</li>
+      </ul>
+    </main>
+  </section>
+
+  <!-- =====================================================================
+       SECTION 2: MULTI-STEP APPLICATION FORM
+       Tests: attachNextButtonListener(), step counter caching
+       Each click on the Next button increments chrome.storage.session[STEP_CACHE_KEY]
+       ===================================================================== -->
+  <section id="form" class="hidden">
+    <h2>Application Form (Multi-Step)</h2>
+
+    <!-- Step indicator: aria-current="step" marks the active step -->
+    <div class="step-indicator">
+      <div data-automation-id="progressStep" aria-current="step" id="step-1">Step 1</div>
+      <div data-automation-id="progressStep" id="step-2">Step 2</div>
+      <div data-automation-id="progressStep" id="step-3">Step 3</div>
+      <div data-automation-id="progressStep" id="step-4">Step 4</div>
+      <div data-automation-id="progressStep" id="step-5">Step 5</div>
+    </div>
+
+    <p>Current step content (form fields would go here).</p>
+
+    <!-- The next button — data-automation-id must match EXACTLY for step tracking -->
+    <button data-automation-id="bottom-navigation-next-button" onclick="advanceStep()">Next</button>
+  </section>
+
+  <!-- =====================================================================
+       SECTION 3: CONFIRMATION PAGE
+       Tests: isConfirmationPage(), handleConfirmation(), JOB_DETECTED message
+       The text matches CONFIRMATION_TEXT_PATTERNS[0]: /successfully submitted your application/i
+       The MutationObserver in startObserver() detects this section appearing in the DOM.
+       ===================================================================== -->
+  <section id="confirmation" class="hidden">
+    <h2>Confirmation</h2>
+    <div class="confirmation-banner">
+      <p>You have <strong>successfully submitted your application</strong>.</p>
+      <p>Thank you for your interest in Acme Corp. We will review your application
+      and be in touch if your profile matches our requirements.</p>
+    </div>
+  </section>
+
+  <script>
+    let currentStep = 1
+
+    function showSection(id) {
+      document.getElementById('job-detail').classList.add('hidden')
+      document.getElementById('form').classList.add('hidden')
+      document.getElementById('confirmation').classList.add('hidden')
+      document.getElementById(id).classList.remove('hidden')
+    }
+
+    function showStep(n) {
+      showSection('form')
+      for (let i = 1; i <= 5; i++) {
+        const el = document.getElementById('step-' + i)
+        if (i === n) {
+          el.setAttribute('aria-current', 'step')
+        } else {
+          el.removeAttribute('aria-current')
+        }
+      }
+      currentStep = n
+    }
+
+    function advanceStep() {
+      if (currentStep < 5) {
+        showStep(currentStep + 1)
+      }
+      // Note: the actual click event is also picked up by attachNextButtonListener()
+      // in workday.ts which increments the chrome.storage.session step counter.
+    }
+
+    function clearStorage() {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.clear()
+      }
+      // chrome.storage.session is separate — cleared via extension devtools
+      alert('sessionStorage cleared. To clear chrome.storage.session, use the extension service worker devtools.')
+    }
+  </script>
+</body>
+</html>
