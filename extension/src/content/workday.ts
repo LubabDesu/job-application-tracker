@@ -1,14 +1,6 @@
 import type { DetectedJob } from "../shared/types.js";
-
-// --- Constants ---
-
-const CONFIRMATION_TEXT_PATTERNS = [
-    /successfully submitted your application/i,
-    /application.*successfully submitted/i,
-    /application submitted/i,
-    /application.*received/i,
-    /thank you for applying/i,
-] as const;
+import { extractJobFromPage } from "./extract-job.js";
+import { checkConfirmationText } from "./detect-apply.js";
 
 // In-memory session state — survives SPA navigation within the same tab
 // Single-slot cache: a user can only apply to one job at a time in a tab,
@@ -47,7 +39,12 @@ function isCachedJobData(value: unknown): value is CachedJobData {
 // --- Discovery helper ---
 
 export function logAutomationIds(): void {
-    // no-op in production; retained for test/debug use via direct call
+    const ids = [...document.querySelectorAll("[data-automation-id]")]
+        .map((el) => el.getAttribute("data-automation-id"))
+        .filter((id): id is string => id !== null);
+    if (ids.length > 0) {
+        console.log("[workday] automation-ids found:", ids);
+    }
 }
 
 // --- DOM helpers (pure, synchronous) ---
@@ -57,6 +54,30 @@ export function isJobDetailPage(): boolean {
     return (
         document.querySelector('[data-automation-id="jobPostingPage"]') !== null
     );
+}
+
+function scrapeJobDetails(): CachedJobData {
+    const extracted = extractJobFromPage();
+
+    const locationEl = document.querySelector(
+        '[data-automation-id="locations"]',
+    );
+    const locationDds = locationEl?.querySelectorAll("dd");
+    const location =
+        locationDds && locationDds.length > 0
+            ? [...locationDds]
+                  .map((dd) => dd.textContent?.trim() ?? "")
+                  .filter(Boolean)
+                  .join(", ")
+            : (locationEl?.textContent?.trim().replace(/^locations\s*/i, "") ??
+              "");
+
+    return {
+        company: extracted?.company ?? "",
+        role: extracted?.role ?? "",
+        jdText: extracted?.jdText ?? "",
+        location,
+    };
 }
 
 // getCurrentStep reads the DOM directly — no click-counting needed.
@@ -71,67 +92,6 @@ export function getCurrentStep(): number | null {
         '[data-automation-id="progressBarCompletedStep"]',
     );
     return completed.length + 1;
-}
-
-export function isConfirmationPage(): boolean {
-    // innerText is layout-dependent and unavailable in jsdom; textContent is the reliable fallback
-    const bodyText = document.body.innerText ?? document.body.textContent ?? "";
-    for (const pattern of CONFIRMATION_TEXT_PATTERNS) {
-        if (pattern.test(bodyText)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-export function scrapeJobDetails(): CachedJobData {
-    // jobPostingDescription: confirmed on Salesforce + T-Mobile (most instances)
-    // job-posting-details: alternate name seen on some Workday instances
-    const jdEl =
-        document.querySelector(
-            '[data-automation-id="jobPostingDescription"]',
-        ) ??
-        document.querySelector('[data-automation-id="job-posting-details"]');
-    const jdText = jdEl?.textContent?.trim() ?? "";
-
-    // locations: use dd children to skip the "Locations" label text in the container
-    const locationEl = document.querySelector(
-        '[data-automation-id="locations"]',
-    );
-    const locationDds = locationEl?.querySelectorAll("dd");
-    const location =
-        locationDds && locationDds.length > 0
-            ? [...locationDds]
-                  .map((dd) => dd.textContent?.trim() ?? "")
-                  .filter(Boolean)
-                  .join(", ")
-            : (locationEl?.textContent?.trim().replace(/^locations\s*/i, "") ??
-              "");
-
-    // Role: try jobPostingHeader (Salesforce + most instances), then h1, then title
-    const roleEl =
-        document.querySelector('[data-automation-id="jobPostingHeader"]') ??
-        document.querySelector("h1");
-    const role =
-        roleEl?.textContent?.trim() ??
-        document.title.split(/\s*[\|\-]\s*/)[0]?.trim() ??
-        "";
-
-    // Company: extract from hostname subdomain (most reliable — always present)
-    // e.g. salesforce.wd12.myworkdayjobs.com → "Salesforce"
-    // Fall back to title parsing for non-standard Workday deployments
-    const hostname = window.location.hostname;
-    const workdayMatch = hostname.match(
-        /^([^.]+)\.(?:wd\d+\.)?myworkdayjobs\.com$/,
-    );
-    const titleParts = document.title.split(/\s*[\|\-]\s*/);
-    const company = workdayMatch
-        ? workdayMatch[1].charAt(0).toUpperCase() + workdayMatch[1].slice(1)
-        : titleParts.length >= 2
-          ? (titleParts[titleParts.length - 1]?.trim() ?? document.title)
-          : document.title;
-
-    return { company, role, jdText, location };
 }
 
 // --- In-memory cache helpers (synchronous) ---
@@ -184,6 +144,24 @@ export function buildDetectedJob(
     return job;
 }
 
+function buildCurrentJobInfo(): DetectedJob {
+    const url = normalizeJobUrl(window.location.href);
+    const details = scrapeJobDetails();
+    return buildDetectedJob(url, details, getCurrentStep());
+}
+
+chrome.runtime.onMessage.addListener(
+    (message: unknown, _sender, sendResponse) => {
+        if (typeof message !== "object" || message === null) return false;
+        if ((message as Record<string, unknown>)["type"] !== "GET_JOB_INFO") {
+            return false;
+        }
+
+        sendResponse(buildCurrentJobInfo());
+        return true;
+    },
+);
+
 // Step tracking: reads DOM directly via progressBarCompletedStep/progressBarActiveStep.
 // Called from the MutationObserver on each DOM change.
 export function handleStepChange(lastStep: { value: number | null }): void {
@@ -220,7 +198,7 @@ export async function handleJobDetailPage(): Promise<void> {
 }
 
 export async function handleConfirmation(): Promise<void> {
-    if (!isConfirmationPage()) {
+    if (!checkConfirmationText()) {
         return;
     }
 
@@ -239,7 +217,9 @@ export async function handleConfirmation(): Promise<void> {
     let cached = getCachedJobDetails(normalizedUrl);
     if (cached === null) {
         try {
-            const result = await chrome.storage.local.get("workday_lastSeenJob");
+            const result = await chrome.storage.local.get(
+                "workday_lastSeenJob",
+            );
             if (isCachedJobData(result["workday_lastSeenJob"])) {
                 cached = result["workday_lastSeenJob"] as CachedJobData;
             }
@@ -259,7 +239,9 @@ export async function handleConfirmation(): Promise<void> {
     // the role element may have rendered.
     if (job.role === "") {
         loggedUrls.delete(normalizedUrl);
-        console.warn("[workday] skipping JOB_DETECTED — role empty (cache miss on confirmation page)");
+        console.warn(
+            "[workday] skipping JOB_DETECTED — role empty (cache miss on confirmation page)",
+        );
         return;
     }
 
@@ -308,7 +290,7 @@ export function startObserver(): void {
         // Track step changes via DOM (progressBarCompletedStep count)
         handleStepChange(lastStep);
 
-        if (isConfirmationPage()) {
+        if (checkConfirmationText()) {
             handleConfirmation().catch((err: unknown) => {
                 console.error("[workday] handleConfirmation error:", err);
             });

@@ -26,14 +26,14 @@ beforeEach(() => {
 
 describe('Settings', () => {
   it('renders mcpUrl and mcpSecret inputs populated from storage', async () => {
-    const { chrome } = makeChrome({ mcpUrl: 'http://localhost:3000', mcpSecret: 'abc' })
+    const { chrome } = makeChrome({ mcpUrl: 'http://127.0.0.1:3000', mcpSecret: 'abc' })
     vi.stubGlobal('chrome', chrome)
 
     const { default: Settings } = await import('../../src/popup/Settings.js')
     render(<Settings onBack={() => {}} />)
 
     await waitFor(() => {
-      expect((screen.getByLabelText('MCP URL') as HTMLInputElement).value).toBe('http://localhost:3000')
+      expect((screen.getByLabelText('MCP URL') as HTMLInputElement).value).toBe('http://127.0.0.1:3000')
       expect((screen.getByLabelText('MCP Secret') as HTMLInputElement).value).toBe('abc')
     })
   })
@@ -46,13 +46,13 @@ describe('Settings', () => {
     render(<Settings onBack={() => {}} />)
 
     await waitFor(() => {
-      expect((screen.getByLabelText('MCP URL') as HTMLInputElement).value).toBe('http://localhost:3000')
+      expect((screen.getByLabelText('MCP URL') as HTMLInputElement).value).toBe('http://127.0.0.1:3000')
       expect((screen.getByLabelText('MCP Secret') as HTMLInputElement).value).toBe('')
     })
   })
 
   it('saves updated settings to chrome.storage.local on form submit', async () => {
-    const { chrome, localSetMock } = makeChrome({ mcpUrl: 'http://localhost:3000', mcpSecret: 'old' })
+    const { chrome, localSetMock } = makeChrome({ mcpUrl: 'http://127.0.0.1:3000', mcpSecret: 'old' })
     vi.stubGlobal('chrome', chrome)
 
     const { default: Settings } = await import('../../src/popup/Settings.js')
@@ -67,12 +67,30 @@ describe('Settings', () => {
     await userEvent.click(screen.getByRole('button', { name: /save/i }))
 
     expect(localSetMock).toHaveBeenCalledWith({
-      settings: { mcpUrl: 'http://localhost:3000', mcpSecret: 'new-secret' },
+      settings: { mcpUrl: 'http://127.0.0.1:3000', mcpSecret: 'new-secret' },
+    })
+  })
+
+  it('normalizes copied endpoint URLs and whitespace before saving', async () => {
+    const { chrome, localSetMock } = makeChrome({
+      mcpUrl: ' localhost:3000/mcp/ ',
+      mcpSecret: ' old-secret ',
+    })
+    vi.stubGlobal('chrome', chrome)
+
+    const { default: Settings } = await import('../../src/popup/Settings.js')
+    render(<Settings onBack={() => {}} />)
+
+    await waitFor(() => screen.getByRole('button', { name: /save/i }))
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(localSetMock).toHaveBeenCalledWith({
+      settings: { mcpUrl: 'http://127.0.0.1:3000', mcpSecret: 'old-secret' },
     })
   })
 
   it('shows "Saved ✓" confirmation after successful save', async () => {
-    const { chrome } = makeChrome({ mcpUrl: 'http://localhost:3000', mcpSecret: 'x' })
+    const { chrome } = makeChrome({ mcpUrl: 'http://127.0.0.1:3000', mcpSecret: 'x' })
     vi.stubGlobal('chrome', chrome)
 
     const { default: Settings } = await import('../../src/popup/Settings.js')

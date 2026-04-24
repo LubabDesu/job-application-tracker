@@ -140,6 +140,26 @@ export function buildDetectedJob(): DetectedJob {
   }
 }
 
+chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+  if (typeof message !== 'object' || message === null) return false
+  if ((message as Record<string, unknown>)['type'] !== 'GET_JOB_INFO') return false
+
+  scrapeListingPage()
+  if (lastSeenJob === null) {
+    const h1 = document.querySelector('h1')
+    const h1Text = h1?.textContent?.trim() ?? ''
+    const isConfirmationText = CONFIRMATION_TEXT_PATTERNS.some(p => p.test(h1Text))
+    const role = isConfirmationText ? '' : h1Text
+    const jdText = extractText(JD_SELECTORS)
+    if (role !== '' || jdText !== '') {
+      lastSeenJob = { role, jdText }
+    }
+  }
+
+  sendResponse(buildDetectedJob())
+  return true
+})
+
 // --- Submit click handler ---
 
 async function handleSubmitClick(): Promise<void> {

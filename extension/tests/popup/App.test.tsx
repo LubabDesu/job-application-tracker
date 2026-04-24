@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
-const TEST_MCP_URL = 'http://localhost:3000'
+const TEST_MCP_URL = 'http://127.0.0.1:3000'
 const TEST_MCP_SECRET = 'test-secret'
 
 function makeChrome(
@@ -25,6 +25,14 @@ function makeChrome(
         addListener: vi.fn(),
         removeListener: vi.fn(),
       },
+    },
+    tabs: {
+      query: vi.fn().mockResolvedValue([]),
+      sendMessage: vi.fn(),
+    },
+    runtime: {
+      lastError: undefined,
+      sendMessage: vi.fn().mockResolvedValue(undefined),
     },
   }
 }
@@ -129,9 +137,32 @@ describe('App — ServerStatusBar', () => {
     })
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:3000/health',
+      'http://127.0.0.1:3000/health',
       expect.objectContaining({
+        method: 'GET',
         headers: { Authorization: 'Bearer ' },
+      }),
+    )
+  })
+
+  it('normalizes copied URL and secret values before checking /health', async () => {
+    const chrome = makeChrome({ mcpUrl: ' localhost:3000/mcp/ ', mcpSecret: ' test-secret ' })
+    vi.stubGlobal('chrome', chrome)
+    const fetchMock = makeFetchOk()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { default: App } = await import('../../src/popup/App.js')
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Server connected')).toBeInTheDocument()
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:3000/health',
+      expect.objectContaining({
+        method: 'GET',
+        headers: { Authorization: 'Bearer test-secret' },
       }),
     )
   })

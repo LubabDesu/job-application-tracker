@@ -5,6 +5,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.stubGlobal('chrome', {
   runtime: {
     sendMessage: vi.fn().mockResolvedValue(undefined),
+    onMessage: {
+      addListener: vi.fn(),
+    },
   },
   storage: {
     local: {
@@ -104,6 +107,15 @@ describe('scrapeJobDetails()', () => {
     document.body.innerHTML = '<h1>Software Engineer</h1>'
     const { role } = scrapeJobDetails()
     expect(role).toBe('Software Engineer')
+  })
+
+  it('extracts role from jobPostingHeader before an empty h1', () => {
+    document.body.innerHTML = `
+      <h1 class="css-1imayji"></h1>
+      <h2 data-automation-id="jobPostingHeader">Software Development Intern</h2>
+    `
+    const { role } = scrapeJobDetails()
+    expect(role).toBe('Software Development Intern')
   })
 
   it('extracts location from [data-automation-id="locations"]', () => {

@@ -119,6 +119,16 @@ export function buildDetectedJob(url: string, cached: CachedJobData | null): Det
   }
 }
 
+chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+  if (typeof message !== 'object' || message === null) return false
+  if ((message as Record<string, unknown>)['type'] !== 'GET_JOB_INFO') return false
+
+  const normalizedUrl = normalizeJobUrl(window.location.href)
+  const cached = lastSeenJob ?? scrapeJobDetails()
+  sendResponse(buildDetectedJob(normalizedUrl, cached))
+  return true
+})
+
 // --- Listing page handler ---
 
 export function handleListingPage(): void {

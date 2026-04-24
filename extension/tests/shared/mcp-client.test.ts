@@ -33,7 +33,7 @@ describe('callLogApplication()', () => {
 
     const { callLogApplication } = await import('../../src/shared/mcp-client.js')
     const job = makeJob({ jdText: 'Build great things', sourcePlatform: 'workday' })
-    await callLogApplication('http://localhost:3000', 'secret', job)
+    await callLogApplication('http://127.0.0.1:3000', 'secret', job)
 
     expect(fetchSpy).toHaveBeenCalledOnce()
     const [_url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
@@ -52,10 +52,25 @@ describe('callLogApplication()', () => {
     vi.stubGlobal('fetch', fetchSpy)
 
     const { callLogApplication } = await import('../../src/shared/mcp-client.js')
-    await callLogApplication('http://localhost:3000', 'my-secret', makeJob())
+    await callLogApplication('http://127.0.0.1:3000', 'my-secret', makeJob())
 
     const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
     const headers = init.headers as Record<string, string>
+    expect(headers['Authorization']).toBe('Bearer my-secret')
+  })
+
+  it('normalizes copied URL and secret values before calling /log', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      makeOkResponse({ job_id: 'j1', notion_url: 'https://notion.so/j1', status: 'logged' }),
+    )
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const { callLogApplication } = await import('../../src/shared/mcp-client.js')
+    await callLogApplication(' http://127.0.0.1:3000/mcp/ ', ' my-secret ', makeJob())
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const headers = init.headers as Record<string, string>
+    expect(url).toBe('http://127.0.0.1:3000/log')
     expect(headers['Authorization']).toBe('Bearer my-secret')
   })
 
@@ -68,7 +83,7 @@ describe('callLogApplication()', () => {
     )
 
     const { callLogApplication } = await import('../../src/shared/mcp-client.js')
-    const result = await callLogApplication('http://localhost:3000', 'secret', makeJob())
+    const result = await callLogApplication('http://127.0.0.1:3000', 'secret', makeJob())
 
     expect(result).toEqual({
       success: true,
@@ -81,7 +96,7 @@ describe('callLogApplication()', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeErrorResponse(401)))
 
     const { callLogApplication } = await import('../../src/shared/mcp-client.js')
-    const result = await callLogApplication('http://localhost:3000', 'bad-secret', makeJob())
+    const result = await callLogApplication('http://127.0.0.1:3000', 'bad-secret', makeJob())
 
     expect(result).toEqual({ success: false, error: 'HTTP 401' })
   })
@@ -90,7 +105,7 @@ describe('callLogApplication()', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
 
     const { callLogApplication } = await import('../../src/shared/mcp-client.js')
-    const result = await callLogApplication('http://localhost:3000', 'secret', makeJob())
+    const result = await callLogApplication('http://127.0.0.1:3000', 'secret', makeJob())
 
     expect(result).toEqual({ success: false, error: 'Network error' })
   })
@@ -107,7 +122,7 @@ describe('callLogApplication()', () => {
     )
 
     const { callLogApplication } = await import('../../src/shared/mcp-client.js')
-    const result = await callLogApplication('http://localhost:3000', 'secret', makeJob())
+    const result = await callLogApplication('http://127.0.0.1:3000', 'secret', makeJob())
 
     expect(result).toEqual({ success: false, error: 'Invalid response from server' })
   })
@@ -121,7 +136,7 @@ describe('callLogApplication()', () => {
     )
 
     const { callLogApplication } = await import('../../src/shared/mcp-client.js')
-    const result = await callLogApplication('http://localhost:3000', 'secret', makeJob())
+    const result = await callLogApplication('http://127.0.0.1:3000', 'secret', makeJob())
 
     expect(result).toEqual({ success: false, error: 'Invalid response from server' })
   })

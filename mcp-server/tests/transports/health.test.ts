@@ -11,11 +11,19 @@ const TEST_SECRET = 'health-test-secret'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+  'Access-Control-Allow-Private-Network': 'true',
+}
+
+function getRoutePath(req: IncomingMessage): string {
+  const pathname = new URL(req.url ?? '/', 'http://localhost').pathname
+  return pathname.replace(/\/+$/, '') || '/'
 }
 
 function handleRequest(req: IncomingMessage, res: ServerResponse, secret: string): void {
+  const routePath = getRoutePath(req)
+
   const auth = req.headers['authorization']
   if (auth !== `Bearer ${secret}`) {
     res.writeHead(401, { 'Content-Type': 'application/json', ...CORS_HEADERS })
@@ -23,7 +31,7 @@ function handleRequest(req: IncomingMessage, res: ServerResponse, secret: string
     return
   }
 
-  if (req.method === 'GET' && req.url === '/health') {
+  if (req.method === 'GET' && routePath === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json', ...CORS_HEADERS })
     res.end(JSON.stringify({ status: 'ok' }))
     return
@@ -37,7 +45,7 @@ async function makeRequest(
   path: string,
   method: string,
   authHeader?: string,
-): Promise<{ status: number; body: unknown }> {
+): Promise<{ status: number; body: unknown; headers: import('http').IncomingHttpHeaders }> {
   return new Promise((resolve, reject) => {
     const server = createServer((req, res) => {
       handleRequest(req, res, TEST_SECRET)
@@ -72,7 +80,7 @@ async function makeRequest(
           server.close()
           const raw = Buffer.concat(chunks).toString('utf8')
           const body: unknown = JSON.parse(raw)
-          resolve({ status: clientRes.statusCode ?? 0, body })
+          resolve({ status: clientRes.statusCode ?? 0, body, headers: clientRes.headers })
         })
       })
 
@@ -100,7 +108,15 @@ describe('GET /health endpoint', () => {
   })
 
   it('returns 200 with { status: "ok" } when the correct Bearer token is provided', async () => {
-    const { status, body } = await makeRequest('/health', 'GET', `Bearer ${TEST_SECRET}`)
+    const { status, body, headers } = await makeRequest('/health', 'GET', `Bearer ${TEST_SECRET}`)
+    expect(status).toBe(200)
+    expect((body as { status: string }).status).toBe('ok')
+    expect(headers['access-control-allow-methods']).toContain('GET')
+    expect(headers['access-control-allow-private-network']).toBe('true')
+  })
+
+  it('accepts /health/ with a trailing slash', async () => {
+    const { status, body } = await makeRequest('/health/', 'GET', `Bearer ${TEST_SECRET}`)
     expect(status).toBe(200)
     expect((body as { status: string }).status).toBe('ok')
   })

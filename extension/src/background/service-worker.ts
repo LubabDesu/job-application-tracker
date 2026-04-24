@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS } from '../shared/types.js'
 
 export type { LogEntry }
 
-const VALID_PLATFORMS = new Set<string>(['ashby', 'workday', 'greenhouse'])
+const VALID_PLATFORMS = new Set<string>(['ashby', 'greenhouse', 'lever', 'linkedin', 'manual', 'workday'])
 const MAX_JD_TEXT_LENGTH = 50_000
 
 function isValidDetectedJob(value: unknown): value is DetectedJob {

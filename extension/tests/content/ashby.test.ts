@@ -5,6 +5,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.stubGlobal('chrome', {
   runtime: {
     sendMessage: vi.fn().mockResolvedValue(undefined),
+    onMessage: {
+      addListener: vi.fn(),
+    },
   },
   storage: {
     local: {

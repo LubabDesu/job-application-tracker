@@ -47,7 +47,7 @@ beforeEach(() => {
 describe('handleJobDetected()', () => {
   it('sets status: error when mcpSecret is empty — no fetch called', async () => {
     const { sessionSetMock, chrome } = makeChromeStub({
-      settings: { mcpUrl: 'http://localhost:3000', mcpSecret: '' },
+      settings: { mcpUrl: 'http://127.0.0.1:3000', mcpSecret: '' },
     })
     vi.stubGlobal('chrome', chrome)
 
@@ -68,7 +68,7 @@ describe('handleJobDetected()', () => {
 
   it('calls storage.session.set twice (pending then logged) on successful MCP call', async () => {
     const { sessionSetMock, chrome } = makeChromeStub({
-      settings: { mcpUrl: 'http://localhost:3000', mcpSecret: 'valid-secret' },
+      settings: { mcpUrl: 'http://127.0.0.1:3000', mcpSecret: 'valid-secret' },
     })
     vi.stubGlobal('chrome', chrome)
 
@@ -99,7 +99,7 @@ describe('handleJobDetected()', () => {
 
   it('sets status: error when MCP call fails', async () => {
     const { sessionSetMock, chrome } = makeChromeStub({
-      settings: { mcpUrl: 'http://localhost:3000', mcpSecret: 'valid-secret' },
+      settings: { mcpUrl: 'http://127.0.0.1:3000', mcpSecret: 'valid-secret' },
     })
     vi.stubGlobal('chrome', chrome)
 

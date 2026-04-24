@@ -1,4 +1,5 @@
 import type { DetectedJob } from './types.js'
+import { normalizeMcpSecret, normalizeMcpUrl } from './types.js'
 
 export interface McpCallResult {
   success: boolean
@@ -28,12 +29,14 @@ export async function callLogApplication(
   mcpSecret: string,
   job: DetectedJob,
 ): Promise<McpCallResult> {
+  const baseUrl = normalizeMcpUrl(mcpUrl)
+  const secret = normalizeMcpSecret(mcpSecret)
   let response: Response
   try {
-    response = await fetch(`${mcpUrl}/log`, {
+    response = await fetch(`${baseUrl}/log`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${mcpSecret}`,
+        'Authorization': `Bearer ${secret}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

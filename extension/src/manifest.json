@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Auto-log job applications to Notion as you apply on Workday and Greenhouse.",
   "permissions": ["storage", "activeTab"],
-  "host_permissions": ["https://*.greenhouse.io/*", "http://localhost/*", "https://*.myworkdayjobs.com/*", "https://*.ashbyhq.com/*"],
+  "host_permissions": ["https://*.greenhouse.io/*", "http://localhost/*", "https://*.myworkdayjobs.com/*", "https://*.ashbyhq.com/*", "<all_urls>"],
   "background": {
     "service_worker": "src/background/service-worker.ts",
     "type": "module"
@@ -21,6 +21,10 @@
     {
       "matches": ["https://*.ashbyhq.com/*"],
       "js": ["src/content/ashby.ts"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/universal.ts"]
     }
   ],
   "action": {

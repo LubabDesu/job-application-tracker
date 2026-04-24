@@ -1,5 +1,7 @@
 import 'dotenv/config'
 
+console.error('Environment keys:', Object.keys(process.env).filter(k => k.startsWith('NOTION_') || k.startsWith('OPENROUTER_') || k === 'MCP_SECRET'))
+
 process.on('uncaughtException', (err) => {
   console.error('[FATAL] Uncaught Exception:', err)
   process.exit(1)

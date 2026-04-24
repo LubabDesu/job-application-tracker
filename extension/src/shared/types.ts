@@ -17,7 +17,7 @@ export interface DetectedJob {
   role: string
   url: string
   jdText: string
-  sourcePlatform: 'greenhouse' | 'workday' | 'ashby'
+  sourcePlatform: 'ashby' | 'greenhouse' | 'lever' | 'linkedin' | 'manual' | 'workday'
   applicationStep?: number
 }
 
@@ -27,8 +27,34 @@ export interface ExtensionSettings {
 }
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
-  mcpUrl: 'http://localhost:3000',
+  mcpUrl: 'http://127.0.0.1:3000',
   mcpSecret: '',
+}
+
+export function normalizeMcpUrl(mcpUrl: string): string {
+  const trimmed = mcpUrl.trim()
+  if (trimmed === '') return DEFAULT_SETTINGS.mcpUrl
+
+  const withScheme = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `http://${trimmed.replace(/^\/+/, '')}`
+
+  try {
+    const url = new URL(withScheme)
+    if (url.hostname === 'localhost') url.hostname = '127.0.0.1'
+    if (/^\/(?:mcp|log|health)\/?$/i.test(url.pathname)) url.pathname = ''
+    url.search = ''
+    url.hash = ''
+    return url.toString().replace(/\/+$/, '')
+  } catch {
+    return withScheme
+      .replace(/\/+$/, '')
+      .replace(/\/(?:mcp|log|health)$/i, '')
+  }
+}
+
+export function normalizeMcpSecret(mcpSecret: string): string {
+  return mcpSecret.trim()
 }
 
 export interface LogEntry {
