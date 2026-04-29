@@ -1,0 +1,125 @@
+:root {
+  --jt-bg: #fbfaf7;
+  --jt-surface: #f3f1ec;
+  --jt-card: #ffffff;
+  --jt-border: #dedad2;
+  --jt-border-strong: #c9c3b8;
+  --jt-text-primary: #171717;
+  --jt-text-secondary: #5f5b53;
+  --jt-text-muted: #8d877d;
+  --jt-accent: #235a8e;
+  --jt-accent-soft: #6e93b8;
+  --jt-accent-bg: #eaf1f7;
+  --jt-accent-bg-strong: #dce8f2;
+  --jt-success: #287a4b;
+  --jt-success-bg: #edf7f1;
+  --jt-error: #b23a30;
+  --jt-error-bg: #fbefed;
+  --jt-pending: #9a6700;
+  --jt-pending-bg: #fff5db;
+  --jt-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Reset */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+}
+
+body {
+  min-width: 360px;
+  background: var(--jt-bg);
+  font-family: var(--jt-font);
+  color: var(--jt-text-primary);
+}
+
+/* Animations */
+@keyframes jt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes jt-fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes jt-slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes jt-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.5;
+  }
+}
+
+/* Utility classes */
+.jt-fade-in {
+  animation: jt-fadeIn 0.2s ease forwards;
+}
+
+.jt-slide-up {
+  animation: jt-slideUp 0.25s ease forwards;
+}
+
+.jt-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--jt-border);
+  border-top-color: var(--jt-accent);
+  border-radius: 50%;
+  animation: jt-spin 0.6s linear infinite;
+}
+
+.jt-divider {
+  height: 1px;
+  background: var(--jt-border);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--jt-accent-soft);
+  opacity: 0.3;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--jt-accent);
+  opacity: 0.5;
+}

@@ -46,6 +46,7 @@ export function startHttpTransport(
     logApplication: (args: LogApplicationArgs) => Promise<LogApplicationResult>,
     port: number,
     secret: string,
+    host = "127.0.0.1",
 ): void {
     const httpServer = createServer((req, res) => {
         const routePath = getRoutePath(req);
@@ -186,7 +187,7 @@ export function startHttpTransport(
         res.end(JSON.stringify({ error: "Not Found" }));
     });
 
-    httpServer.listen(port, "127.0.0.1", () => {
-        console.error(`HTTP transport listening on http://127.0.0.1:${port}`);
+    httpServer.listen(port, host, () => {
+        console.error(`HTTP transport listening on http://${host}:${port}`);
     });
 }

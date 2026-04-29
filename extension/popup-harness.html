@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Tracker Harness</title>
+    <script>
+      const chromeMock = {
+        storage: {
+          local: {
+            get: async () => ({
+              settings: {
+                mcpUrl: "http://127.0.0.1:3000",
+                mcpSecret: "dev-secret"
+              }
+            }),
+            set: async () => undefined
+          },
+          session: {
+            get: async () => ({})
+          },
+          onChanged: {
+            addListener: () => undefined,
+            removeListener: () => undefined
+          }
+        },
+        tabs: {
+          query: async () => [{
+            id: 1,
+            url: "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Summer-2026-Intern"
+          }],
+          sendMessage: (_id, _message, callback) => callback({
+            company: "Salesforce",
+            role: "Software Engineering Intern",
+            url: "https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/Summer-2026-Intern",
+            sourcePlatform: "workday",
+            jdText: "Build software with product teams."
+          })
+        },
+        runtime: {
+          lastError: undefined,
+          sendMessage: async () => undefined
+        }
+      };
+      try {
+        Object.defineProperty(globalThis, "chrome", {
+          value: chromeMock,
+          configurable: true,
+          writable: true
+        });
+      } catch {
+        globalThis.chrome = globalThis.chrome || {};
+        globalThis.chrome.storage = chromeMock.storage;
+        globalThis.chrome.tabs = chromeMock.tabs;
+        globalThis.chrome.runtime = chromeMock.runtime;
+      }
+      window.fetch = async () => ({ ok: true, status: 200 });
+    </script>
+  </head>
+  <body style="background: #ffffff; min-width: 360px;">
+    <div id="root"></div>
+    <script type="module" src="/src/popup/main.tsx"></script>
+  </body>
+</html>
